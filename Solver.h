@@ -3,6 +3,25 @@
 #include "State.h"
 #include "Goal.h"
 #include "Action.h"
+
+class SearchNode
+{
+public:
+  State state;
+  int gn = 0;
+  int fn;
+  SearchNode *parent = nullptr;
+  SearchNode(State s) : state(s){};
+};
+
+struct compare
+{
+  bool operator()(const SearchNode *const &a, const SearchNode *const &b) const
+  {
+    return (a->fn > b->fn);
+  }
+};
+
 class Solver
 {
 private:
@@ -28,7 +47,10 @@ public:
   bool checkGoals(State s, vector<Goal> gs);
   void singleGoalWithoutHeuristic(State s, vector<Goal> g);
   void singleGoalWithHeuristic(State s, priority_queue<Action> actions, vector<Goal> g);
-  void print()
+  void disjunctiveGoalWithHeuristic(State s, priority_queue<Action> actions, vector<Goal> g);
+  void conjunctiveGoalWithHeuristic(State s, priority_queue<Action> actions, vector<Goal> g);
+  void aStarAlgo(State s, vector<Goal> g);
+  void print(Goal recordedGoal)
   {
     for (int i = 0; i < recordedStates.size(); i++)
     {
@@ -37,7 +59,10 @@ public:
            << " with h= " << recordedH[i];
       recordedStates.at(i).printBoard();
     }
-    cout << "Found in " << recordedStates.size() << " steps";
+    cout << "Goal (" << recordedGoal.block << ", "
+         << currentState.returnGridSize() - 1 - recordedGoal.row << ", "
+         << recordedGoal.col
+         << ") was found in " << recordedStates.size() << " steps";
   }
 };
 
@@ -226,5 +251,105 @@ void Solver::singleGoalWithHeuristic(State s, priority_queue<Action> actions, ve
     };
     actions.pop();
   };
+}
+
+void Solver::disjunctiveGoalWithHeuristic(State s, priority_queue<Action> actions, vector<Goal> g)
+{
+  for (int i = 0; i < g.size(); i++)
+  {
+    vector<Goal> go = {};
+    go.push_back(g.at(i));
+    availableActionsWithHeuristic(s, actions, go);
+    singleGoalWithHeuristic(s, actions, go);
+    if (recordedStates.size() < 100)
+    {
+      print(go[0]);
+      break;
+    }
+    else
+    {
+      recordedStates.clear();
+      recordedActions.clear();
+      recordedH.clear();
+    }
+  }
+}
+
+void Solver::conjunctiveGoalWithHeuristic(State s, priority_queue<Action> actions, vector<Goal> g)
+{
+  vector<Goal> go = {};
+  for (int i = 0; i < g.size(); i++)
+  {
+    go.insert(go.begin(), g.at(i));
+    if (i == 0)
+    {
+      singleGoalWithHeuristic(s, actions, go);
+    }
+    else
+    {
+      State a(recordedStates.back());
+      recordedStates.clear();
+      recordedH.clear();
+      recordedActions.clear();
+      singleGoalWithHeuristic(a, actions, go);
+    }
+    flagh = false;
+    print(go[0]);
+    cout << endl;
+  }
+};
+
+void Solver::aStarAlgo(State s, vector<Goal> g)
+{
+  priority_queue<SearchNode *, vector<SearchNode *>, compare> searchNodes;
+  stack<State> path;
+  int steps;
+  Action act(1, 1); // arbitrary
+  act.calculateHeuristic(s, g[0]);
+  SearchNode *se = new SearchNode(s);
+  se->fn = act.heuristic;
+  searchNodes.push(se);
+  while (!searchNodes.empty())
+  {
+    SearchNode *current = searchNodes.top();
+    searchNodes.pop();
+    if (checkGoals(current->state, g))
+    {
+      steps = current->fn;
+      while (current != nullptr)
+      {
+        path.push(current->state);
+        current = current->parent;
+      }
+      break;
+    }
+    priority_queue<Action> actions;
+    availableActionsWithHeuristic(current->state, actions, g);
+    while (!actions.empty())
+    {
+      State a(current->state);
+      if (a.moveBlock(actions.top().source, actions.top().destination))
+      {
+        if (!visitedStates.count(a))
+        {
+          visitedStates.insert(a);
+          act.calculateHeuristic(a, g[0]);
+          SearchNode *temp = new SearchNode(a);
+          temp->parent = current;
+          temp->gn = current->gn + 1;
+          temp->fn = act.heuristic + temp->gn;
+          searchNodes.push(temp);
+        }
+      }
+      actions.pop();
+    }
+  }
+
+  while (!path.empty())
+  {
+    path.top().printBoard();
+    path.pop();
+  }
+  cout << "Found in " << steps << " steps!\n";
 }
 #endif
