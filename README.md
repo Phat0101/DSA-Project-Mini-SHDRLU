@@ -1,6 +1,7 @@
 # DSA-Project-Mini-SHDRLU #A-star algorithm #A* algorithm 
+(Click raw to view the grid)
 Solving a simple mini SHDRLU board game, moving blocks to achieve a goal 
-A random board can be (N*N) size and the max number of blocks is N*N-N (0 represents empty space) (Click raw to view the grid)
+A random board can be (N*N) size and the max number of blocks is N*N-N (0 represents empty space)
 Example: 
 |  0 |  1 |  0 |
 |  4 |  2 |  0 |
